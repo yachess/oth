@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+const char side[2][12]={"Black","White"};
+
 typedef struct {
   long bb[2];
 } Board;
@@ -253,17 +255,23 @@ int main(int argc ,char** argv){
   printf("avail Moves:%d\n", moves[0]);
 
   char nota[3];
-  sq_to_nota(44,nota);
-  printf("44=%s\n",nota);
-  printf("e6=%d\n",nota_to_sq("e6"));
 
+  int mv = nota_to_sq(nota);
   char t=0;
+  avail_moves(&b,t,moves);
+  if (moves[0]>0){
+    for (int i=0;i<moves[0];i++){
+      sq_to_nota(moves[i+1],nota);
+      printf("%s:",nota);
+    }
+    printf("\n");
+  }
+
   while (~(b.bb[0] | b.bb[1]) != 0L) {
     printf("Enter your move:");
     scanf("%s",nota);
     int mv = nota_to_sq(nota);
     avail_moves(&b,t,moves);
-
     if (in_moves(&moves[0],mv)){
         make_move(&b,mv,t);
         print_board(b);
@@ -278,7 +286,7 @@ int main(int argc ,char** argv){
           }
           printf("\n");
         }else{
-          printf("Passing.\n");
+          printf("%s has no move.Passing.\n",side[t]);
           t ^= 1;
         }
     }
