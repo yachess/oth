@@ -1,0 +1,25 @@
+#! /bin/bash
+
+if [ $# -eq 0 ]; then
+  cnt=100
+else
+  cnt="$1"
+  re='^[0-9]+$'
+  if ! [[ $1 =~ $re ]]; then
+    echo "argument must be a number" >&2; exit 1
+  fi
+fi
+
+echo -n "Tourney Started."
+for n in $(seq $cnt); do
+  ./oth | tail -1 >> results
+  echo -n "."
+done
+echo "Tourney finished"
+
+white_win=$(grep -c '1-0' results)
+black_win=$(grep -c '0-1' results)
+
+echo "White vs Black = $white_win : $black_win"
+rm results
+
