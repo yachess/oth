@@ -15,11 +15,12 @@ const char side[2][12]={"Black","White"};
 const int HUMAN=0;
 const int RANDOM=1;
 const int AI=2;
-const int player_type[2]={HUMAN,RANDOM};
+const int player_type[2]={AI,RANDOM};
 
 typedef struct {
   long bb[2];
   int last_mv;
+  char t;
 } Board;
 
 void print_board(Board board){
@@ -44,16 +45,23 @@ void print_board(Board board){
     }
     printf("\n");
   }
-
 }
 
 int eval(Board *b){
   int val=0;
   for (int i=0;i<64;i++)
     if (b->bb[0] & 1L<<i)
-      val++;
-    else if (b->bb[1] & 1L<<i)
       val--;
+    else if (b->bb[1] & 1L<<i)
+      val++;
+  return val;
+}
+
+int count(Board *b,char clr){
+  int val=0;
+  for (int i=0;i<64;i++)
+    if (b->bb[clr] & 1L<<i)
+      val++;
   return val;
 }
 
@@ -77,7 +85,7 @@ int sq_to_nota(char sq,char* nota){
   return 0;
 }
 
-int avail_moves(Board *b, char clr, char *moves){
+int avail_moves(Board *b,  char *moves){
   char size=0;
   int k,delta,tsq;
 
@@ -90,10 +98,10 @@ int avail_moves(Board *b, char clr, char *moves){
     delta = -9;   /*  NW  */
     
     tsq = sq+delta*k;
-    while (tsq%8 < sq%8 && tsq >=0 && (b->bb[clr ^ 1] & 1L << tsq))
+    while (tsq%8 < sq%8 && tsq >=0 && (b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
     if ( k>1 && tsq%8 < sq%8 && tsq >= 0 &&
-        (b->bb[clr] & 1L << tsq)){
+        (b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -101,9 +109,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k = 1;
     delta = -8;   /*  N  */
     tsq = sq+delta*k;
-    while ( tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq >=0 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq >= 0 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq >= 0 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -111,9 +119,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k = 1;
     delta = -7;   /*  NE  */
     tsq = sq+delta*k;
-    while ( tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq%8 > sq%8 && tsq >=0 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq%8 > sq%8 && tsq >=0 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -121,9 +129,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k = 1;
     delta = -1;   /*  W  */
     tsq = sq+delta*k;
-    while ( tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq%8 < sq%8 && tsq >=0 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq%8 < sq%8 && tsq >=0 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -131,9 +139,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k = 1;
     delta = 1;   /*  E  */
     tsq = sq+delta*k;
-    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -141,9 +149,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k = 1;
     delta = 7;   /*  SW  */
     tsq = sq+delta*k;
-    while ( tsq%8 < sq%8 && tsq < 64 && (b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq%8 < sq%8 && tsq < 64 && (b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq%8 < sq%8 && tsq < 64 && (b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq%8 < sq%8 && tsq < 64 && (b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -151,9 +159,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k=1;
     delta = 8;   /*  S  */
     tsq = sq+delta*k;
-    while ( tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq < 64 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq < 64 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq < 64 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -161,9 +169,9 @@ int avail_moves(Board *b, char clr, char *moves){
     k=1;
     delta = 9;   /*  SE  */
     tsq = sq+delta*k;
-    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[b->t ^ 1] & 1L << tsq))
       tsq = sq + delta * ++k;
-    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq)){
+    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[b->t] & 1L << tsq)){
       moves[size+1]=sq;
       size++;
       continue;
@@ -182,10 +190,12 @@ int in_moves(char moves[],char mv){
   return 0;
 }
 
-int make_move(Board *b,char sq,int clr){
+int make_move(Board *b,char sq){
   int k = 1;
   int delta = -9;   /*  NW  */
   int tsq = sq+delta*k;
+  char clr = b->t;
+
   while (tsq%8 < sq%8 && tsq >=0 &&
       (b->bb[clr ^ 1] & 1L << tsq))
     tsq = sq+delta*++k;
@@ -265,16 +275,62 @@ void print_moves(char moves[]){
   }
 }
 
-int get_ai_move(Board *b,char moves[]){
-  srand(time(NULL));
-  int r = rand() % moves[0];
-  return moves[r+1];
+/***
+ *
+ * ai_player
+ *
+ ***/
+
+int search(Board *b, int depth,char clr, char* mv){
+  signed int max=-10000;
+  char idx=-1;
+  char moves[64];
+ 
+  if (depth == 0)
+    return eval(b); 
+  avail_moves(b, moves);
+  if (moves[0]==0)
+    return eval(b);
+
+  for (int i=0;i<moves[0];i++){
+    Board b2 = *b;
+    char mv2;
+    make_move(&b2, moves[i+1]);
+    int val =search(&b2, depth-1, clr, &mv2);
+
+    if(clr==0)
+      val=-val;
+
+    if (max < val){
+      idx = i;
+      max = val;
+      *mv = moves[i+1];
+    }
+  }
+  return max;
 }
+
+
+char get_ai_move(Board *b,char moves[],char type){
+  char mv;
+  if (type==RANDOM) {
+    srand(time(NULL));
+    int r = rand() % moves[0];
+    return moves[r+1];
+  }
+  else {
+    int v = search(b,5,b->t,&mv);
+    return mv;
+  }
+}
+
 
 int main(int argc ,char** argv){
   char moves[64];
 
   Board b= { 0L, 0L };
+  b.t=0;
+
 
   put(&b,3*8+3,1);  /* white */
   put(&b,4*8+4,1);
@@ -286,30 +342,30 @@ int main(int argc ,char** argv){
   char nota[3];
 
   int mv = nota_to_sq(nota);
-  char t=0;
-  avail_moves(&b,t,moves);
+  b.t=0;
+  avail_moves(&b,moves);
   print_moves(moves);
 
   while (~(b.bb[0] | b.bb[1]) != 0L) {
 
-    if (player_type[t]==HUMAN){
+    if (player_type[b.t]==HUMAN){
       printf("Enter Your Move:");
       scanf("%s",nota);
       mv = nota_to_sq(nota);
     } else {
-      mv = get_ai_move(&b,moves);
+      mv = get_ai_move(&b,moves,player_type[b.t]);
     }
     if (in_moves(&moves[0],mv)){
-        make_move(&b,mv,t);
+        make_move(&b,mv);
         b.last_mv = mv;
         print_board(b);
-        t ^= 1;
-        avail_moves(&b,t,moves);
+        b.t ^= 1;
+        avail_moves(&b,moves);
         print_moves(moves);
         if (moves[0]==0){
-          printf("%s has no move.Passing.\n",side[t]);
-          t ^= 1;
-          avail_moves(&b,t,moves);
+          printf("%s has no move.Passing.\n",side[b.t]);
+          b.t ^= 1;
+          avail_moves(&b,moves);
           if (moves[0]==0)
             break;
         }
@@ -317,5 +373,14 @@ int main(int argc ,char** argv){
     else
       printf("Wrong move\n");
   }
+  /*judge*/
+  int c = count(&b,0);  /* count black */
+  if (c>32)
+    printf("0-1\n");
+  else if (c==32)
+    printf("1/2-1/2\n");
+  else
+    printf("1-0\n");
+
   return 0;
 }
