@@ -9,11 +9,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 const char side[2][12]={"Black","White"};
+const int HUMAN=0;
+const int RANDOM=1;
+const int AI=2;
+const int player_type[2]={HUMAN,RANDOM};
 
 typedef struct {
   long bb[2];
+  int last_mv;
 } Board;
 
 void print_board(Board board){
@@ -22,15 +28,23 @@ void print_board(Board board){
   for (i=0;i<8;i++) {
     printf("%d",i+1);
     for (j=0;j<8;j++) {
-      if (board.bb[0] & 1L << (i*8+j))
-        printf(" X");
-      else if (board.bb[1] & 1L << (i*8+j))
-        printf(" O");
+      int sq = i*8+j;
+      if (board.bb[0] & 1L << sq)
+        if (board.last_mv == sq)
+          printf(">X");
+        else
+          printf(" X");
+      else if (board.bb[1] & 1L << sq)
+        if (board.last_mv == sq)
+          printf(">O");
+        else
+          printf(" O");
       else
         printf(" .");
     }
     printf("\n");
   }
+
 }
 
 int eval(Board *b){
@@ -239,6 +253,24 @@ int make_move(Board *b,char sq,int clr){
   put(b,sq,clr);
 }
 
+void print_moves(char moves[]){
+  char nota[3];
+  printf("size:%d\t",moves[0]);
+  if (moves[0]>0){
+    for (int i=0;i<moves[0];i++){
+      sq_to_nota(moves[i+1],nota);
+      printf("%s:",nota);
+    }
+    printf("\n");
+  }
+}
+
+int get_ai_move(Board *b,char moves[]){
+  srand(time(NULL));
+  int r = rand() % moves[0];
+  return moves[r+1];
+}
+
 int main(int argc ,char** argv){
   char moves[64];
 
@@ -251,43 +283,35 @@ int main(int argc ,char** argv){
 
   print_board(b);
 
-  avail_moves(&b,0,moves);
-  printf("avail Moves:%d\n", moves[0]);
-
   char nota[3];
 
   int mv = nota_to_sq(nota);
   char t=0;
   avail_moves(&b,t,moves);
-  if (moves[0]>0){
-    for (int i=0;i<moves[0];i++){
-      sq_to_nota(moves[i+1],nota);
-      printf("%s:",nota);
-    }
-    printf("\n");
-  }
+  print_moves(moves);
 
   while (~(b.bb[0] | b.bb[1]) != 0L) {
-    printf("Enter your move:");
-    scanf("%s",nota);
-    int mv = nota_to_sq(nota);
-    avail_moves(&b,t,moves);
+
+    if (player_type[t]==HUMAN){
+      printf("Enter Your Move:");
+      scanf("%s",nota);
+      mv = nota_to_sq(nota);
+    } else {
+      mv = get_ai_move(&b,moves);
+    }
     if (in_moves(&moves[0],mv)){
         make_move(&b,mv,t);
+        b.last_mv = mv;
         print_board(b);
         t ^= 1;
-        /* print available moves */ 
-        printf("Legal moves:");
         avail_moves(&b,t,moves);
-        if (moves[0]>0){
-          for (int i=0;i<moves[0];i++){
-            sq_to_nota(moves[i+1],nota);
-            printf("%s:",nota);
-          }
-          printf("\n");
-        }else{
+        print_moves(moves);
+        if (moves[0]==0){
           printf("%s has no move.Passing.\n",side[t]);
           t ^= 1;
+          avail_moves(&b,t,moves);
+          if (moves[0]==0)
+            break;
         }
     }
     else
