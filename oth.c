@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <time.h>
 
 const char side[2][12]={"Black","White"};
@@ -17,10 +18,22 @@ const int RANDOM=1;
 const int AI=2;
 const int player_type[2]={AI,RANDOM};
 
+const int WEIGHTS[64]={
+  120,-20,2,1,1,2,-20,120,
+  -20,-10,1,1,1,1,-10,-20,
+  2,1,1,1,1,1,1,2,
+  1,1,1,1,1,1,1,1,
+  1,1,1,1,1,1,1,1,
+  2,1,1,1,1,1,1,2,
+  -20,-10,1,1,1,1,-10,-20,
+  120,-20,2,1,1,2,-20,120,
+};
+
 typedef struct {
   long bb[2];
   int last_mv;
   char t;
+  int ply;
 } Board;
 
 void print_board(Board board){
@@ -49,11 +62,21 @@ void print_board(Board board){
 
 int eval(Board *b){
   int val=0;
-  for (int i=0;i<64;i++)
-    if (b->bb[0] & 1L<<i)
-      val--;
-    else if (b->bb[1] & 1L<<i)
-      val++;
+  if (b->ply > 55) { 
+    /* in endgame is it meaningless to weight squares. thus only count stones */
+    for (int i=0;i<64;i++)
+      if (b->bb[0] & 1L<<i)
+        val-=1;
+      else if (b->bb[1] & 1L<<i)
+        val+=1;
+  }
+  else {
+    for (int i=0;i<64;i++)
+      if (b->bb[0] & 1L<<i)
+        val-=WEIGHTS[i];
+      else if (b->bb[1] & 1L<<i)
+        val+=WEIGHTS[i];
+  }
   return val;
 }
 
@@ -196,71 +219,77 @@ int make_move(Board *b,char sq){
   int tsq = sq+delta*k;
   char clr = b->t;
 
-  while (tsq%8 < sq%8 && tsq >=0 &&
-      (b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta*++k;
-  if ( k>1 && tsq%8 < sq%8 && tsq >= 0 &&
-      (b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k = 1;
-  delta = -8;   /*  N  */
-  tsq = sq+delta*k;
-  while ( tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq >= 0 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k = 1;
-  delta = -7;   /*  NE  */
-  tsq = sq+delta*k;
-  while ( tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k = 1;
-  delta = -1;   /*  W  */
-  tsq = sq+delta*k;
-  while ( tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k = 1;
-  delta = 1;   /*  E  */
-  tsq = sq+delta*k;
-  while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k = 1;
-  delta = 7;   /*  SW  */
-  tsq = sq+delta*k;
-  while ( tsq%8 < sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq%8 < sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k=1;
-  delta = 8;   /*  S  */
-  tsq = sq+delta*k;
-  while ( tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
-  k=1;
-  delta = 9;   /*  SE  */
-  tsq = sq+delta*k;
-  while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
-    tsq = sq+delta* ++k;
-  if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
-    for (int q=1;q<k;q++)
-      flip(b, sq+delta*q);
+  if (sq != -1){
+    while (tsq%8 < sq%8 && tsq >=0 &&
+        (b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta*++k;
+    if ( k>1 && tsq%8 < sq%8 && tsq >= 0 &&
+        (b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k = 1;
+    delta = -8;   /*  N  */
+    tsq = sq+delta*k;
+    while ( tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq >= 0 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k = 1;
+    delta = -7;   /*  NE  */
+    tsq = sq+delta*k;
+    while ( tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq%8 > sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k = 1;
+    delta = -1;   /*  W  */
+    tsq = sq+delta*k;
+    while ( tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq%8 < sq%8 && tsq >=0 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k = 1;
+    delta = 1;   /*  E  */
+    tsq = sq+delta*k;
+    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k = 1;
+    delta = 7;   /*  SW  */
+    tsq = sq+delta*k;
+    while ( tsq%8 < sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq%8 < sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k=1;
+    delta = 8;   /*  S  */
+    tsq = sq+delta*k;
+    while ( tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
+    k=1;
+    delta = 9;   /*  SE  */
+    tsq = sq+delta*k;
+    while ( tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr ^ 1] & 1L << tsq))
+      tsq = sq+delta* ++k;
+    if ( k>1 && tsq%8 > sq%8 && tsq < 64 &&(b->bb[clr] & 1L << tsq))
+      for (int q=1;q<k;q++)
+        flip(b, sq+delta*q);
 
-  put(b,sq,clr);
+    put(b,sq,clr);
+  }
+
+  b->t ^= 1;
+  b->last_mv = sq;
+  b->ply ++;
 }
 
 void print_moves(char moves[]){
@@ -281,32 +310,42 @@ void print_moves(char moves[]){
  *
  ***/
 
-int search(Board *b, int depth,char clr, char* mv){
-  signed int max=-10000;
+int minimax(Board *b, int depth, char* mv){
+  int max=INT_MIN;
+  int min=INT_MAX;
   char idx=-1;
   char moves[64];
+
+  avail_moves(b, moves);
  
   if (depth == 0)
-    return eval(b); 
-  avail_moves(b, moves);
+    return eval(b)+moves[0]*5; 
   if (moves[0]==0)
-    return eval(b);
+    return eval(b)+moves[0]*5;
 
   for (int i=0;i<moves[0];i++){
     Board b2 = *b;
     char mv2;
     make_move(&b2, moves[i+1]);
-    int val =search(&b2, depth-1, clr, &mv2);
+    int val =minimax(&b2, depth-1, &mv2);
 
-    if(clr==0)
-      val=-val;
-
-    if (max < val){
-      idx = i;
-      max = val;
-      *mv = moves[i+1];
+    if(b->t==0) {     /* mini ... */
+      if (min > val){
+        idx = i;
+        min = val;
+        *mv = moves[i+1];
+      } 
+    }
+    else {            /* ... max */
+      if (max < val){
+        idx = i;
+        max = val;
+        *mv = moves[i+1];
+      }
     }
   }
+
+  if (b->t==0) return min;
   return max;
 }
 
@@ -319,7 +358,7 @@ char get_ai_move(Board *b,char moves[],char type){
     return moves[r+1];
   }
   else {
-    int v = search(b,5,b->t,&mv);
+    int v = minimax(b,5,&mv);
     return mv;
   }
 }
@@ -330,7 +369,7 @@ int main(int argc ,char** argv){
 
   Board b= { 0L, 0L };
   b.t=0;
-
+  b.ply=0;
 
   put(&b,3*8+3,1);  /* white */
   put(&b,4*8+4,1);
@@ -357,14 +396,12 @@ int main(int argc ,char** argv){
     }
     if (in_moves(&moves[0],mv)){
         make_move(&b,mv);
-        b.last_mv = mv;
         print_board(b);
-        b.t ^= 1;
         avail_moves(&b,moves);
         print_moves(moves);
         if (moves[0]==0){
           printf("%s has no move.Passing.\n",side[b.t]);
-          b.t ^= 1;
+          make_move(&b,-1);
           avail_moves(&b,moves);
           if (moves[0]==0)
             break;
