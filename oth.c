@@ -16,7 +16,7 @@ const char side[2][12]={"Black","White"};
 const int HUMAN=0;
 const int RANDOM=1;
 const int AI=2;
-const int player_type[2]={AI,RANDOM};
+const int player_type[2]={RANDOM,AI};
 
 const int WEIGHTS[64]={
   120,-20,2,1,1,2,-20,120,
@@ -62,14 +62,14 @@ void print_board(Board board){
 
 int eval(Board *b){
   int val=0;
-  if (b->ply > 55) { 
+  if (b->ply > 50 || b->ply < 15) { 
     /* in endgame is it meaningless to weight squares. thus only count stones */
     for (int i=0;i<64;i++)
       if (b->bb[0] & 1L<<i)
         val-=1;
       else if (b->bb[1] & 1L<<i)
         val+=1;
-  }
+  } /* middle game */
   else {
     for (int i=0;i<64;i++)
       if (b->bb[0] & 1L<<i)
@@ -81,11 +81,7 @@ int eval(Board *b){
 }
 
 int count(Board *b,char clr){
-  int val=0;
-  for (int i=0;i<64;i++)
-    if (b->bb[clr] & 1L<<i)
-      val++;
-  return val;
+  return __builtin_popcountl(b->bb[clr]);
 }
 
 void put(Board *b, char sq, char color){
@@ -310,33 +306,47 @@ void print_moves(char moves[]){
  *
  ***/
 
-int minimax(Board *b, int depth, char* mv){
+int minimax(Board *b, int v, int depth, char* mv){
   int max=INT_MIN;
   int min=INT_MAX;
   char idx=-1;
   char moves[64];
 
   avail_moves(b, moves);
- 
+
+//if (b->ply>1 && b->ply<15) {  /* In opening, only mobility matters */
+//  return moves[0]*(b->t==0?-1:1);
+//}
+  int myval=eval(b);
   if (depth == 0)
-    return eval(b)+moves[0]*5; 
+    return myval+moves[0]*5*(b->t==0?-1:1); 
   if (moves[0]==0)
-    return eval(b)+moves[0]*5;
+    return myval;
 
   for (int i=0;i<moves[0];i++){
     Board b2 = *b;
     char mv2;
     make_move(&b2, moves[i+1]);
-    int val =minimax(&b2, depth-1, &mv2);
+    int val =minimax(&b2, v, depth-1, &mv2);
 
     if(b->t==0) {     /* mini ... */
+      if (myval-14>val){ /* killer move */
+        *mv = moves[i+1];
+        return val;
+      }
+
       if (min > val){
         idx = i;
         min = val;
         *mv = moves[i+1];
       } 
+
     }
     else {            /* ... max */
+      if (myval+14<val){  /* killer move */
+        *mv = moves[i+1];
+        return val;
+      }
       if (max < val){
         idx = i;
         max = val;
@@ -358,7 +368,10 @@ char get_ai_move(Board *b,char moves[],char type){
     return moves[r+1];
   }
   else {
-    int v = minimax(b,5,&mv);
+    int depth = 8;
+    if (b->ply > 50)
+      depth = 14;
+    int v = minimax(b,0,depth,&mv);
     return mv;
   }
 }
@@ -411,10 +424,11 @@ int main(int argc ,char** argv){
       printf("Wrong move\n");
   }
   /*judge*/
-  int c = count(&b,0);  /* count black */
-  if (c>32)
+  int blk = count(&b,0);  
+  int wht = count(&b,1); 
+  if (blk>wht)
     printf("0-1\n");
-  else if (c==32)
+  else if (blk==wht)
     printf("1/2-1/2\n");
   else
     printf("1-0\n");
